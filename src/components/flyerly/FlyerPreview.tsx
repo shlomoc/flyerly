@@ -3,7 +3,7 @@
 import type { EventDetails } from '@/types/flyer';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'; // For file input styling
+// import { Input } from '@/components/ui/input'; // For file input styling (not used currently)
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { CalendarDays, MapPin, Upload, Download, Palette, ImagePlus } from 'lucide-react';
@@ -12,9 +12,14 @@ import { Separator } from '../ui/separator';
 interface FlyerPreviewProps {
   eventDetails: EventDetails;
   tagline: string;
+  flyerImage?: string | null;
 }
 
-export default function FlyerPreview({ eventDetails, tagline }: FlyerPreviewProps) {
+export default function FlyerPreview({ eventDetails, tagline, flyerImage }: FlyerPreviewProps) {
+  const imageSrc = flyerImage || "https://placehold.co/600x800.png";
+  const imageAlt = flyerImage ? "AI Generated Event Flyer Image" : "Flyer Preview Placeholder";
+  const imageHint = flyerImage ? "event flyer custom" : "event poster design";
+
   return (
     <div className="space-y-6">
       <Card className="shadow-xl w-full max-w-2xl mx-auto overflow-hidden">
@@ -31,18 +36,22 @@ export default function FlyerPreview({ eventDetails, tagline }: FlyerPreviewProp
         <CardContent className="p-4 sm:p-6 space-y-4">
           <div className="aspect-[3/4] bg-muted rounded-md flex items-center justify-center overflow-hidden relative">
             <Image 
-              src="https://placehold.co/600x800.png" // Placeholder for flyer content
-              alt="Flyer Preview"
+              src={imageSrc}
+              alt={imageAlt}
               width={600}
               height={800}
               className="object-cover w-full h-full"
-              data-ai-hint="event poster design"
+              data-ai-hint={imageHint}
+              key={imageSrc} // Add key to force re-render on src change for data URIs
             />
-            {/* Overlay example text - this would be part of drag-and-drop */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/20">
-              <h2 className="text-white text-2xl font-bold text-center shadow-lg">{eventDetails.name || "Your Event Title"}</h2>
-              <p className="text-white text-md text-center shadow-md">{tagline || "Catchy Tagline Here"}</p>
-            </div>
+            {/* Example overlay text - this would be part of drag-and-drop, or dynamic based on template */}
+            {/* Consider if this overlay should be shown if a custom image is present or if the custom image should be the full content */}
+            {!flyerImage && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/20">
+                <h2 className="text-white text-2xl font-bold text-center shadow-lg">{eventDetails.name || "Your Event Title"}</h2>
+                <p className="text-white text-md text-center shadow-md">{tagline || "Catchy Tagline Here"}</p>
+              </div>
+            )}
           </div>
 
           <Separator />

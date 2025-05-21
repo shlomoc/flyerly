@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import type { EventDetails } from '@/types/flyer';
 import AiTaglineGenerator from '@/components/flyerly/AiTaglineGenerator';
+import AiImageGenerator from '@/components/flyerly/AiImageGenerator';
 import EventDetailsForm from '@/components/flyerly/EventDetailsForm';
 import FlyerPreview from '@/components/flyerly/FlyerPreview';
 import TemplateLibrary from '@/components/flyerly/TemplateLibrary'; // Placeholder
@@ -15,6 +16,7 @@ export default function HomePage() {
     location: '123 Main Street, Anytown, USA',
   });
   const [tagline, setTagline] = useState<string>('Your Amazing Tagline Goes Here!');
+  const [flyerImage, setFlyerImage] = useState<string | null>(null);
   // const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null); // For future use
 
   const handleDetailsChange = useCallback((fieldName: keyof EventDetails, value: any) => {
@@ -26,6 +28,10 @@ export default function HomePage() {
 
   const handleTaglineGenerated = useCallback((newTagline: string) => {
     setTagline(newTagline);
+  }, []);
+
+  const handleImageGenerated = useCallback((newImageDataUri: string) => {
+    setFlyerImage(newImageDataUri);
   }, []);
 
   // const handleTemplateSelect = useCallback((templateId: string) => { // For future use
@@ -47,6 +53,11 @@ export default function HomePage() {
             onTaglineGenerated={handleTaglineGenerated}
             currentTagline={tagline}
           />
+          <AiImageGenerator
+            eventDescription={eventDetails.description}
+            onImageGenerated={handleImageGenerated}
+            currentImageUrl={flyerImage}
+          />
           <TemplateLibrary 
             // onSelectTemplate={handleTemplateSelect} // For future use
           />
@@ -57,6 +68,7 @@ export default function HomePage() {
           <FlyerPreview
             eventDetails={eventDetails}
             tagline={tagline}
+            flyerImage={flyerImage}
             // selectedTemplate={selectedTemplate} // For future use
           />
         </section>
