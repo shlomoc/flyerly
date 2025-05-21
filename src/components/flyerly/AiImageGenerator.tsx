@@ -1,3 +1,4 @@
+
 // src/components/flyerly/AiImageGenerator.tsx
 "use client";
 
@@ -12,7 +13,7 @@ import Image from 'next/image';
 interface AiImageGeneratorProps {
   eventDescription: string;
   onImageGenerated: (imageDataUri: string) => void;
-  currentImageUrl?: string | null;
+  currentImageUrl?: string | null; // This will now reflect the activeFlyerImage from HomePage
 }
 
 export default function AiImageGenerator({ eventDescription, onImageGenerated, currentImageUrl }: AiImageGeneratorProps) {
@@ -35,10 +36,10 @@ export default function AiImageGenerator({ eventDescription, onImageGenerated, c
     try {
       const input: GenerateEventImageInput = { eventDescription };
       const result = await generateEventImage(input);
-      onImageGenerated(result.imageDataUri);
+      onImageGenerated(result.imageDataUri); // This now updates activeFlyerImage in HomePage
       toast({
-        title: "Image Generated!",
-        description: "A new event image has been successfully created.",
+        title: "AI Image Generated!",
+        description: "A new event image has been successfully created by AI.",
       });
     } catch (e) {
       console.error("Error generating image:", e);
@@ -76,7 +77,7 @@ export default function AiImageGenerator({ eventDescription, onImageGenerated, c
             </>
           ) : (
             <>
-              Generate Image
+              Generate AI Image
               <ImageIcon className="ml-2 h-5 w-5" />
             </>
           )}
@@ -89,13 +90,14 @@ export default function AiImageGenerator({ eventDescription, onImageGenerated, c
         )}
         {currentImageUrl && !isLoading && !error && (
           <div className="mt-4">
-            <p className="text-sm font-medium text-muted-foreground mb-2">Last Generated Image:</p>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Current Flyer Image Preview:</p>
             <div className="rounded-md border overflow-hidden aspect-[4/3] relative">
               <Image 
                 src={currentImageUrl} 
-                alt="Generated Event Image Thumbnail" 
+                alt="Current Event Flyer Image Thumbnail" 
                 layout="fill" 
-                objectFit="contain" 
+                objectFit="contain"
+                key={currentImageUrl} 
               />
             </div>
           </div>

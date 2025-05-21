@@ -1,24 +1,65 @@
+
 "use client";
 
 import type { EventDetails } from '@/types/flyer';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-// import { Input } from '@/components/ui/input'; // For file input styling (not used currently)
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { CalendarDays, MapPin, Upload, Download, Palette, ImagePlus } from 'lucide-react';
 import { Separator } from '../ui/separator';
+import { useRef } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 interface FlyerPreviewProps {
   eventDetails: EventDetails;
   tagline: string;
-  flyerImage?: string | null;
+  currentImage: string | null; // Consolidated image prop
+  onImageUpload: (imageDataUri: string) => void; // Callback for user uploads
 }
 
-export default function FlyerPreview({ eventDetails, tagline, flyerImage }: FlyerPreviewProps) {
-  const imageSrc = flyerImage || "https://placehold.co/600x800.png";
-  const imageAlt = flyerImage ? "AI Generated Event Flyer Image" : "Flyer Preview Placeholder";
-  const imageHint = flyerImage ? "event flyer custom" : "event poster design";
+export default function FlyerPreview({ eventDetails, tagline, currentImage, onImageUpload }: FlyerPreviewProps) {
+  const imageSrc = currentImage || "https://placehold.co/600x800.png";
+  const imageAlt = currentImage ? "Event Flyer Image" : "Flyer Preview Placeholder";
+  const imageHint = currentImage ? "event flyer custom" : "event poster design";
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const handleUploadButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: 'Invalid File Type',
+          description: 'Please select an image file (e.g., PNG, JPG, GIF).',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onImageUpload(reader.result as string);
+      };
+      reader.onerror = () => {
+        toast({
+          title: 'File Read Error',
+          description: 'Could not read the selected file.',
+          variant: 'destructive',
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset file input value to allow uploading the same file again if needed
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -44,9 +85,7 @@ export default function FlyerPreview({ eventDetails, tagline, flyerImage }: Flye
               data-ai-hint={imageHint}
               key={imageSrc} // Add key to force re-render on src change for data URIs
             />
-            {/* Example overlay text - this would be part of drag-and-drop, or dynamic based on template */}
-            {/* Consider if this overlay should be shown if a custom image is present or if the custom image should be the full content */}
-            {!flyerImage && (
+            {!currentImage && ( // Show overlay only if no custom/AI image is present
               <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/20">
                 <h2 className="text-white text-2xl font-bold text-center shadow-lg">{eventDetails.name || "Your Event Title"}</h2>
                 <p className="text-white text-md text-center shadow-md">{tagline || "Catchy Tagline Here"}</p>
@@ -78,7 +117,14 @@ export default function FlyerPreview({ eventDetails, tagline, flyerImage }: Flye
           </div>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-between items-center p-4 sm:p-6 bg-secondary/30 gap-2">
-          <Button variant="outline" className="w-full sm:w-auto">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            className="hidden"
+          />
+          <Button variant="outline" className="w-full sm:w-auto" onClick={handleUploadButtonClick}>
             <Upload className="mr-2 h-4 w-4" /> Upload Image/Logo
           </Button>
           <div className="flex space-x-2">

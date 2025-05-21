@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useCallback } from 'react';
@@ -7,6 +8,7 @@ import AiImageGenerator from '@/components/flyerly/AiImageGenerator';
 import EventDetailsForm from '@/components/flyerly/EventDetailsForm';
 import FlyerPreview from '@/components/flyerly/FlyerPreview';
 import TemplateLibrary from '@/components/flyerly/TemplateLibrary'; // Placeholder
+import { useToast } from '@/hooks/use-toast';
 
 export default function HomePage() {
   const [eventDetails, setEventDetails] = useState<EventDetails>({
@@ -16,8 +18,9 @@ export default function HomePage() {
     location: '123 Main Street, Anytown, USA',
   });
   const [tagline, setTagline] = useState<string>('Your Amazing Tagline Goes Here!');
-  const [flyerImage, setFlyerImage] = useState<string | null>(null);
+  const [activeFlyerImage, setActiveFlyerImage] = useState<string | null>(null);
   // const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null); // For future use
+  const { toast } = useToast();
 
   const handleDetailsChange = useCallback((fieldName: keyof EventDetails, value: any) => {
     setEventDetails(prevDetails => ({
@@ -30,9 +33,22 @@ export default function HomePage() {
     setTagline(newTagline);
   }, []);
 
-  const handleImageGenerated = useCallback((newImageDataUri: string) => {
-    setFlyerImage(newImageDataUri);
-  }, []);
+  const handleAiImageGenerated = useCallback((newImageDataUri: string) => {
+    setActiveFlyerImage(newImageDataUri);
+    toast({
+      title: "AI Image Set!",
+      description: "The AI generated image is now set as the flyer image.",
+    });
+  }, [toast]);
+
+  const handleUserImageUpload = useCallback((imageDataUri: string) => {
+    setActiveFlyerImage(imageDataUri);
+    toast({
+      title: "Image Uploaded!",
+      description: "Your image has been set as the flyer image.",
+    });
+  }, [toast]);
+
 
   // const handleTemplateSelect = useCallback((templateId: string) => { // For future use
   //   setSelectedTemplate(templateId);
@@ -55,8 +71,8 @@ export default function HomePage() {
           />
           <AiImageGenerator
             eventDescription={eventDetails.description}
-            onImageGenerated={handleImageGenerated}
-            currentImageUrl={flyerImage}
+            onImageGenerated={handleAiImageGenerated}
+            currentImageUrl={activeFlyerImage}
           />
           <TemplateLibrary 
             // onSelectTemplate={handleTemplateSelect} // For future use
@@ -68,7 +84,8 @@ export default function HomePage() {
           <FlyerPreview
             eventDetails={eventDetails}
             tagline={tagline}
-            flyerImage={flyerImage}
+            currentImage={activeFlyerImage}
+            onImageUpload={handleUserImageUpload}
             // selectedTemplate={selectedTemplate} // For future use
           />
         </section>
