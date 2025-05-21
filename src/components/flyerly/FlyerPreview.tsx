@@ -18,8 +18,10 @@ interface FlyerPreviewProps {
   onImageUpload: (imageDataUri: string) => void; // Callback for user uploads
 }
 
+const PLACEHOLDER_IMAGE_URL = "https://placehold.co/600x800.png";
+
 export default function FlyerPreview({ eventDetails, tagline, currentImage, onImageUpload }: FlyerPreviewProps) {
-  const imageSrc = currentImage || "https://placehold.co/600x800.png";
+  const imageSrc = currentImage || PLACEHOLDER_IMAGE_URL;
   const imageAlt = currentImage ? "Event Flyer Image" : "Flyer Preview Placeholder";
   const imageHint = currentImage ? "event flyer custom" : "event poster design";
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,6 +59,65 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
     // Reset file input value to allow uploading the same file again if needed
     if (event.target) {
       event.target.value = '';
+    }
+  };
+
+  const handleDownload = (format: 'png' | 'jpeg' | 'pdf') => {
+    if (!currentImage || imageSrc === PLACEHOLDER_IMAGE_URL) {
+      toast({
+        title: 'No Image to Download',
+        description: 'Please generate or upload an image for your flyer first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = imageSrc;
+    
+    const safeEventName = eventDetails.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'flyer';
+    let filename = `${safeEventName}.${format === 'jpeg' ? 'jpg' : 'png'}`;
+    let downloadMimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+
+    // Forcing PNG for PDF for now
+    if (format === 'pdf') {
+      filename = `${safeEventName}_image.png`; // PDF download as image
+      downloadMimeType = 'image/png';
+      toast({
+        title: 'Image Downloaded as PNG',
+        description: 'Full PDF export with text and layout is a feature coming soon. The flyer image has been downloaded as a PNG.',
+        duration: 6000,
+      });
+    }
+
+    // If original image is PNG and user wants JPG, it will still download as PNG from data URI
+    // unless we implement canvas conversion. For simplicity, we will download with the extension
+    // the user asked for, but the actual content type depends on imageSrc.
+    // Most browsers will handle this, or save it as .png if the data URI is PNG.
+    // To truly convert to JPG, canvas methods would be needed.
+    // For now, we just set the download attribute.
+    if (format === 'jpeg' && imageSrc.startsWith('data:image/png')) {
+        toast({
+            title: 'Downloading as PNG',
+            description: 'The current image is a PNG. It will be downloaded as a PNG file, even if JPG was selected. True JPG conversion will be added later.',
+            duration: 6000,
+        });
+         filename = `${safeEventName}.png`; // Keep it as PNG
+    } else if (format === 'jpeg') {
+         filename = `${safeEventName}.jpg`;
+    }
+
+
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    if (format !== 'pdf') { // PDF toast is handled above
+      toast({
+        title: 'Download Started',
+        description: `Your flyer image is downloading as ${filename}.`,
+      });
     }
   };
 
@@ -128,10 +189,10 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
             <Upload className="mr-2 h-4 w-4" /> Upload Image/Logo
           </Button>
           <div className="flex space-x-2">
-            <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90">PNG</Button>
-            <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90">JPG</Button>
-            <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90">PDF</Button>
-            <Button variant="ghost" size="icon" title="Download Options">
+            <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleDownload('png')}>PNG</Button>
+            <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleDownload('jpeg')}>JPG</Button>
+            <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleDownload('pdf')}>PDF</Button>
+            <Button variant="ghost" size="icon" title="Download Options" onClick={() => handleDownload('png')}>
                 <Download className="h-5 w-5"/>
             </Button>
           </div>
