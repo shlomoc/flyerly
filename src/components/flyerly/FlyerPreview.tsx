@@ -10,6 +10,7 @@ import { CalendarDays, MapPin, Upload, Download, Palette, ImagePlus } from 'luci
 import { Separator } from '../ui/separator';
 import { useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import jsPDF from 'jspdf';
 
 interface FlyerPreviewProps {
   eventDetails: EventDetails;
@@ -23,7 +24,7 @@ const PLACEHOLDER_IMAGE_URL = "https://placehold.co/600x800.png";
 export default function FlyerPreview({ eventDetails, tagline, currentImage, onImageUpload }: FlyerPreviewProps) {
   const imageSrc = currentImage || PLACEHOLDER_IMAGE_URL;
   const imageAlt = currentImage ? "Event Flyer Image" : "Flyer Preview Placeholder";
-  const imageHint = currentImage ? "event flyer custom" : "event poster design";
+  const imageHint = currentImage ? "event flyer custom" : "event poster"; // Max two words
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -56,13 +57,121 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
       };
       reader.readAsDataURL(file);
     }
-    // Reset file input value to allow uploading the same file again if needed
     if (event.target) {
       event.target.value = '';
     }
   };
 
-  const handleDownload = (format: 'png' | 'jpeg' | 'pdf') => {
+  const handleDownload = async (formatType: 'png' | 'jpeg' | 'pdf') => {
+    const safeEventName = eventDetails.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'flyer';
+
+    if (formatType === 'pdf') {
+      if (!currentImage && !eventDetails.name) {
+         toast({
+          title: 'Cannot Generate PDF',
+          description: 'Please provide event details and an image before generating a PDF.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      toast({
+        title: 'Generating PDF...',
+        description: 'Please wait while your flyer PDF is being created.',
+      });
+
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px', // Using pixels for easier coordination with image dimensions initially
+        format: [600, 800], // Example: typical flyer aspect ratio, adjust as needed
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 30; // 30px margin
+
+      // Add Image
+      if (currentImage) {
+        try {
+          // Attempt to get image dimensions (might not work for all data URIs directly without an Image object)
+          // For simplicity, let's assume the image is meant to be a background or prominent feature.
+          // We'll scale it to fit the width, and place it at the top.
+          const img = new window.Image();
+          img.src = currentImage;
+          await new Promise(resolve => img.onload = resolve);
+          
+          const imgWidth = img.width;
+          const imgHeight = img.height;
+          const aspectRatio = imgWidth / imgHeight;
+
+          let pdfImgWidth = pageWidth - 2 * margin;
+          let pdfImgHeight = pdfImgWidth / aspectRatio;
+
+          if (pdfImgHeight > pageHeight * 0.6) { // Limit image height to 60% of page
+            pdfImgHeight = pageHeight * 0.6;
+            pdfImgWidth = pdfImgHeight * aspectRatio;
+          }
+          
+          const xPosImg = (pageWidth - pdfImgWidth) / 2;
+          doc.addImage(currentImage, 'PNG', xPosImg, margin, pdfImgWidth, pdfImgHeight);
+        } catch (e) {
+            console.error("Error adding image to PDF: ", e);
+            toast({ title: "PDF Image Error", description: "Could not add image to PDF.", variant: "destructive"});
+        }
+      } else {
+         // Placeholder for no image, e.g., a colored rectangle or just text shifted up
+      }
+
+      let currentY = currentImage ? margin + (pageHeight * 0.6) + 20 : margin + 20; // Start Y position for text
+
+      // Event Name
+      doc.setFontSize(30);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor('#667EEA'); // Primary color approximation
+      doc.text(eventDetails.name || "Event Name", pageWidth / 2, currentY, { align: 'center' });
+      currentY += 35;
+
+      // Tagline
+      if (tagline) {
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor('#9F7AEA'); // Accent color approximation
+        doc.text(tagline, pageWidth / 2, currentY, { align: 'center' });
+        currentY += 25;
+      }
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor('#0A0F1A'); // Foreground color approximation
+
+      // Date
+      if (eventDetails.date) {
+        doc.text(format(eventDetails.date, "EEEE, MMMM dd, yyyy 'at' h:mm a"), margin, currentY);
+        currentY += 20;
+      }
+
+      // Location
+      if (eventDetails.location) {
+        doc.text(eventDetails.location, margin, currentY, {maxWidth: pageWidth - 2*margin });
+        currentY += 20 + (eventDetails.location.length > 50 ? 10 : 0); // Add extra space for long locations
+      }
+      
+      // Description
+      if (eventDetails.description) {
+        currentY += 10; // Little space before description
+        doc.setFontSize(10);
+        const splitDescription = doc.splitTextToSize(eventDetails.description, pageWidth - 2 * margin);
+        doc.text(splitDescription, margin, currentY);
+      }
+
+      doc.save(`${safeEventName}.pdf`);
+      toast({
+        title: 'PDF Downloaded!',
+        description: `Your flyer has been downloaded as ${safeEventName}.pdf.`,
+      });
+      return;
+    }
+
+    // Image download logic (PNG/JPEG)
     if (!currentImage || imageSrc === PLACEHOLDER_IMAGE_URL) {
       toast({
         title: 'No Image to Download',
@@ -75,50 +184,28 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
     const link = document.createElement('a');
     link.href = imageSrc;
     
-    const safeEventName = eventDetails.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'flyer';
-    let filename = `${safeEventName}.${format === 'jpeg' ? 'jpg' : 'png'}`;
-    let downloadMimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-
-    // Forcing PNG for PDF for now
-    if (format === 'pdf') {
-      filename = `${safeEventName}_image.png`; // PDF download as image
-      downloadMimeType = 'image/png';
-      toast({
-        title: 'Image Downloaded as PNG',
-        description: 'Full PDF export with text and layout is a feature coming soon. The flyer image has been downloaded as a PNG.',
-        duration: 6000,
-      });
-    }
-
-    // If original image is PNG and user wants JPG, it will still download as PNG from data URI
-    // unless we implement canvas conversion. For simplicity, we will download with the extension
-    // the user asked for, but the actual content type depends on imageSrc.
-    // Most browsers will handle this, or save it as .png if the data URI is PNG.
-    // To truly convert to JPG, canvas methods would be needed.
-    // For now, we just set the download attribute.
-    if (format === 'jpeg' && imageSrc.startsWith('data:image/png')) {
+    let filename = `${safeEventName}.${formatType === 'jpeg' ? 'jpg' : 'png'}`;
+    
+    if (formatType === 'jpeg' && imageSrc.startsWith('data:image/png')) {
         toast({
             title: 'Downloading as PNG',
-            description: 'The current image is a PNG. It will be downloaded as a PNG file, even if JPG was selected. True JPG conversion will be added later.',
+            description: 'The current image is PNG. For true JPG conversion, advanced processing is needed. Downloading as PNG.',
             duration: 6000,
         });
-         filename = `${safeEventName}.png`; // Keep it as PNG
-    } else if (format === 'jpeg') {
+         filename = `${safeEventName}.png`;
+    } else if (formatType === 'jpeg') {
          filename = `${safeEventName}.jpg`;
     }
-
 
     link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
-    if (format !== 'pdf') { // PDF toast is handled above
-      toast({
-        title: 'Download Started',
-        description: `Your flyer image is downloading as ${filename}.`,
-      });
-    }
+    toast({
+      title: 'Download Started',
+      description: `Your flyer image is downloading as ${filename}.`,
+    });
   };
 
 
@@ -144,9 +231,9 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
               height={800}
               className="object-cover w-full h-full"
               data-ai-hint={imageHint}
-              key={imageSrc} // Add key to force re-render on src change for data URIs
+              key={imageSrc} 
             />
-            {!currentImage && ( // Show overlay only if no custom/AI image is present
+            {!currentImage && ( 
               <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/20">
                 <h2 className="text-white text-2xl font-bold text-center shadow-lg">{eventDetails.name || "Your Event Title"}</h2>
                 <p className="text-white text-md text-center shadow-md">{tagline || "Catchy Tagline Here"}</p>
@@ -199,7 +286,6 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
         </CardFooter>
       </Card>
       
-      {/* Placeholder for Drag-and-Drop Editor Tools */}
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-xl flex items-center">
@@ -222,3 +308,4 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
     </div>
   );
 }
+
