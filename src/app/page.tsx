@@ -7,8 +7,9 @@ import AiTaglineGenerator from '@/components/flyerly/AiTaglineGenerator';
 import AiImageGenerator from '@/components/flyerly/AiImageGenerator';
 import EventDetailsForm from '@/components/flyerly/EventDetailsForm';
 import FlyerPreview from '@/components/flyerly/FlyerPreview';
-import TemplateLibrary from '@/components/flyerly/TemplateLibrary'; // Placeholder
+import TemplateLibrary from '@/components/flyerly/TemplateLibrary';
 import { useToast } from '@/hooks/use-toast';
+import { exampleTemplates } from '@/data/templates'; // Import example templates
 
 export default function HomePage() {
   const [eventDetails, setEventDetails] = useState<EventDetails>({
@@ -19,7 +20,7 @@ export default function HomePage() {
   });
   const [tagline, setTagline] = useState<string>('Your Amazing Tagline Goes Here!');
   const [activeFlyerImage, setActiveFlyerImage] = useState<string | null>(null);
-  // const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null); // For future use
+  const [currentImageHint, setCurrentImageHint] = useState<string>('event poster'); // For placeholder image hint
   const { toast } = useToast();
 
   const handleDetailsChange = useCallback((fieldName: keyof EventDetails, value: any) => {
@@ -35,6 +36,7 @@ export default function HomePage() {
 
   const handleAiImageGenerated = useCallback((newImageDataUri: string) => {
     setActiveFlyerImage(newImageDataUri);
+    setCurrentImageHint('event flyer custom'); // Update hint when AI image is set
     toast({
       title: "AI Image Set!",
       description: "The AI generated image is now set as the flyer image.",
@@ -43,17 +45,32 @@ export default function HomePage() {
 
   const handleUserImageUpload = useCallback((imageDataUri: string) => {
     setActiveFlyerImage(imageDataUri);
+    setCurrentImageHint('event flyer custom'); // Update hint when user image is set
     toast({
       title: "Image Uploaded!",
       description: "Your image has been set as the flyer image.",
     });
   }, [toast]);
 
-
-  // const handleTemplateSelect = useCallback((templateId: string) => { // For future use
-  //   setSelectedTemplate(templateId);
-  //   // Potentially load template data and update eventDetails or flyer styles
-  // }, []);
+  const handleTemplateSelect = useCallback((templateId: string) => {
+    const selectedTemplate = exampleTemplates.find(t => t.id === templateId);
+    if (selectedTemplate) {
+      setEventDetails(prevDetails => ({
+        ...prevDetails, // Keep existing date and location unless specified by template
+        name: selectedTemplate.defaultEventName || prevDetails.name,
+        description: selectedTemplate.defaultEventDescription || prevDetails.description,
+        // date: selectedTemplate.defaultDate || prevDetails.date, // Example if templates could set dates
+        // location: selectedTemplate.defaultLocation || prevDetails.location, // Example for location
+      }));
+      setTagline(selectedTemplate.defaultTagline || 'Your Amazing Tagline Goes Here!');
+      setActiveFlyerImage(null); // Reset to placeholder
+      setCurrentImageHint(selectedTemplate.defaultImageHint || 'event poster');
+      toast({
+        title: "Template Selected!",
+        description: `The "${selectedTemplate.name}" template has been applied.`,
+      });
+    }
+  }, [toast]);
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
@@ -75,7 +92,7 @@ export default function HomePage() {
             currentImageUrl={activeFlyerImage}
           />
           <TemplateLibrary 
-            // onSelectTemplate={handleTemplateSelect} // For future use
+            onSelectTemplate={handleTemplateSelect}
           />
         </section>
 
@@ -86,7 +103,7 @@ export default function HomePage() {
             tagline={tagline}
             currentImage={activeFlyerImage}
             onImageUpload={handleUserImageUpload}
-            // selectedTemplate={selectedTemplate} // For future use
+            currentImageHint={currentImageHint} 
           />
         </section>
       </div>

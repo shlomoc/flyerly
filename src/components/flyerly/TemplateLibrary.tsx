@@ -3,15 +3,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Cake, Briefcase, Music, Users, Palette } from "lucide-react";
+import { Palette } from "lucide-react";
 import type { Template } from "@/types/flyer";
-
-const exampleTemplates: Template[] = [
-  { id: "t1", name: "Birthday Bash", description: "Fun and festive for birthday celebrations.", icon: Cake, category: "Party" },
-  { id: "t2", name: "Corporate Meetup", description: "Professional design for business events.", icon: Briefcase, category: "Business" },
-  { id: "t3", name: "Concert Night", description: "Dynamic layout for music events.", icon: Music, category: "Entertainment" },
-  { id: "t4", name: "Community Gathering", description: "Friendly and inviting for local events.", icon: Users, category: "Community" },
-];
+import { exampleTemplates } from "@/data/templates"; // Import from new data file
 
 interface TemplateLibraryProps {
   onSelectTemplate?: (templateId: string) => void;
@@ -25,7 +19,7 @@ export default function TemplateLibrary({ onSelectTemplate }: TemplateLibraryPro
           <Palette className="mr-2 h-6 w-6 text-primary" />
           Template Library
         </CardTitle>
-        <CardDescription>Choose a pre-designed template to get started quickly. (Feature coming soon!)</CardDescription>
+        <CardDescription>Select a template to pre-fill event details and get a head start.</CardDescription>
       </CardHeader>
       <CardContent>
         <ScrollArea className="w-full whitespace-nowrap rounded-md">
@@ -43,7 +37,7 @@ export default function TemplateLibrary({ onSelectTemplate }: TemplateLibraryPro
                     size="sm" 
                     className="w-full"
                     onClick={() => onSelectTemplate?.(template.id)}
-                    disabled // Feature coming soon
+                    disabled={!onSelectTemplate} // Enable if onSelectTemplate is provided
                   >
                     Select
                   </Button>
@@ -53,7 +47,9 @@ export default function TemplateLibrary({ onSelectTemplate }: TemplateLibraryPro
           </div>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
-        <p className="text-sm text-muted-foreground mt-4 text-center">Full template functionality is under development.</p>
+        {exampleTemplates.length === 0 && (
+           <p className="text-sm text-muted-foreground mt-4 text-center">No templates available at the moment.</p>
+        )}
       </CardContent>
     </Card>
   );

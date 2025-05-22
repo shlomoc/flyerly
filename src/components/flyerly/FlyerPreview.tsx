@@ -15,16 +15,18 @@ import jsPDF from 'jspdf';
 interface FlyerPreviewProps {
   eventDetails: EventDetails;
   tagline: string;
-  currentImage: string | null; // Consolidated image prop
-  onImageUpload: (imageDataUri: string) => void; // Callback for user uploads
+  currentImage: string | null;
+  onImageUpload: (imageDataUri: string) => void;
+  currentImageHint?: string; // Hint for the placeholder image's data-ai-hint
 }
 
 const PLACEHOLDER_IMAGE_URL = "https://placehold.co/600x800.png";
 
-export default function FlyerPreview({ eventDetails, tagline, currentImage, onImageUpload }: FlyerPreviewProps) {
+export default function FlyerPreview({ eventDetails, tagline, currentImage, onImageUpload, currentImageHint }: FlyerPreviewProps) {
   const imageSrc = currentImage || PLACEHOLDER_IMAGE_URL;
   const imageAlt = currentImage ? "Event Flyer Image" : "Flyer Preview Placeholder";
-  const imageHint = currentImage ? "event flyer custom" : "event poster"; // Max two words
+  // Use currentImageHint for placeholder, otherwise default, or "event flyer custom" if an image is active
+  const dataAiHintValue = currentImage ? "event flyer custom" : (currentImageHint || "event poster");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -50,7 +52,7 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
       };
       reader.onerror = () => {
         toast({
-          title: 'File Read Error',
+          title: 'File ReadError',
           description: 'Could not read the selected file.',
           variant: 'destructive',
         });
@@ -58,7 +60,7 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
       reader.readAsDataURL(file);
     }
     if (event.target) {
-      event.target.value = '';
+      event.target.value = ''; // Reset file input
     }
   };
 
@@ -93,11 +95,26 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
       // Add Image
       if (currentImage) {
         try {
+          // Check if image is base64 data URI
+          const isDataURI = currentImage.startsWith('data:image');
+          if (!isDataURI) {
+            // If it's a URL, we might need to fetch and convert, or use a proxy.
+            // For simplicity, we'll assume it's usable directly by jsPDF or skip if not data URI.
+            // jsPDF can handle some direct URLs but it's less reliable than base64.
+            console.warn("Image for PDF is a URL, attempting to add directly. For best results, use a data URI.");
+          }
+
           const img = new window.Image();
-          img.src = currentImage;
+          img.src = currentImage; // jsPDF might handle various image types, PNG usually best
+          
+          // It's better to await image loading if it's not already loaded
+          // but jsPDF addImage can often handle it. Let's wrap in a promise for safety.
           await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
+            img.onload = () => resolve(img);
+            img.onerror = (err) => {
+              console.error("Image failed to load for PDF:", err);
+              reject(new Error("Image load failed for PDF"));
+            };
           });
           
           const imgWidth = img.width;
@@ -107,44 +124,54 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
           let pdfImgWidth = pageWidth - 2 * margin;
           let pdfImgHeight = pdfImgWidth / aspectRatio;
           
-          const maxImageHeight = pageHeight * 0.5; // Max 50% of page for image to leave space for text
+          const maxImageHeight = pageHeight * 0.5; 
           if (pdfImgHeight > maxImageHeight) {
             pdfImgHeight = maxImageHeight;
             pdfImgWidth = pdfImgHeight * aspectRatio;
           }
           
           const xPosImg = (pageWidth - pdfImgWidth) / 2;
-          doc.addImage(currentImage, 'PNG', xPosImg, currentY, pdfImgWidth, pdfImgHeight); // Use currentImage (which should be base64)
-          currentY += pdfImgHeight + 20; // Space after image
+          // Determine image type for jsPDF from data URI or file extension if it's a URL
+          let imageFormat = 'PNG'; // Default
+          if (isDataURI) {
+            const mimeType = currentImage.substring(currentImage.indexOf(':') + 1, currentImage.indexOf(';'));
+            if (mimeType.includes('jpeg') || mimeType.includes('jpg')) imageFormat = 'JPEG';
+            // Add more types if needed
+          } else if (currentImage.toLowerCase().endsWith('.jpg') || currentImage.toLowerCase().endsWith('.jpeg')) {
+            imageFormat = 'JPEG';
+          }
+
+          doc.addImage(currentImage, imageFormat, xPosImg, currentY, pdfImgWidth, pdfImgHeight);
+          currentY += pdfImgHeight + 20; 
         } catch (e) {
             console.error("Error adding image to PDF: ", e);
             toast({ title: "PDF Image Error", description: "Could not add image to PDF. Proceeding with text only.", variant: "destructive"});
-            currentY += 20; // Add some space if image fails
+            currentY += 20; 
         }
       } else {
-         currentY += 20; // Space if no image
+         currentY += 20; 
       }
 
       // Event Name
       doc.setFontSize(28);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(45, 55, 72); // Primary color (approximating --primary: 230 79% 66%;)
+      doc.setTextColor(45, 55, 72); 
       const eventNameLines = doc.splitTextToSize(eventDetails.name || "Event Name", pageWidth - 2 * margin);
       doc.text(eventNameLines, pageWidth / 2, currentY, { align: 'center' });
-      currentY += (eventNameLines.length * 20) + 10; // Adjust based on lines
+      currentY += (eventNameLines.length * 20) + 10; 
 
       // Tagline
       if (tagline) {
         doc.setFontSize(16);
         doc.setFont('helvetica', 'italic');
-        doc.setTextColor(107, 33, 168); // Accent color (approximating --accent: 260 79% 70%;)
+        doc.setTextColor(107, 33, 168); 
         const taglineLines = doc.splitTextToSize(tagline, pageWidth - 2 * margin - 20);
         doc.text(taglineLines, pageWidth / 2, currentY, { align: 'center' });
         currentY += (taglineLines.length * 12) + 15;
       }
       
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(29, 37, 53); // Foreground color (approximating --foreground: 224 71.4% 4.1%;)
+      doc.setTextColor(29, 37, 53); 
 
       // Date
       if (eventDetails.date) {
@@ -177,11 +204,11 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
       return;
     }
 
-    // Image download logic (PNG) - this branch will be less used now but kept for robustness
+    // PNG download logic
     if (!currentImage || imageSrc === PLACEHOLDER_IMAGE_URL) {
       toast({
         title: 'No Image to Download',
-        description: 'Please generate or upload an image for your flyer first.',
+        description: 'Please generate or upload an image for your flyer first for PNG download.',
         variant: 'destructive',
       });
       return;
@@ -198,7 +225,7 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
     document.body.removeChild(link);
 
     toast({
-      title: 'Download Started',
+      title: 'PNG Download Started',
       description: `Your flyer image is downloading as ${filename}.`,
     });
   };
@@ -225,7 +252,7 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
               width={600}
               height={800}
               className="object-cover w-full h-full"
-              data-ai-hint={imageHint}
+              data-ai-hint={dataAiHintValue} // Use the dynamic hint
               key={imageSrc} 
             />
             {!currentImage && ( 
@@ -272,7 +299,6 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
           </Button>
           <div className="flex space-x-2">
             <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleDownload('png')}>PNG</Button>
-            {/* Removed PDF button, Download icon now handles PDF */}
             <Button variant="ghost" size="icon" title="Download Flyer as PDF" onClick={() => handleDownload('pdf')}>
                 <Download className="h-5 w-5"/>
             </Button>
@@ -282,4 +308,3 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
     </div>
   );
 }
-
