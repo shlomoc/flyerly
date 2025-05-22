@@ -66,10 +66,10 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
     const safeEventName = eventDetails.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'flyer';
 
     if (formatType === 'pdf') {
-      if (!currentImage && !eventDetails.name) {
+      if (!currentImage && !eventDetails.name && !tagline && !eventDetails.date && !eventDetails.location && !eventDetails.description) {
          toast({
           title: 'Cannot Generate PDF',
-          description: 'Please provide event details and an image before generating a PDF.',
+          description: 'Please provide some event details or an image before generating a PDF.',
           variant: 'destructive',
         });
         return;
@@ -81,23 +81,24 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
 
       const doc = new jsPDF({
         orientation: 'portrait',
-        unit: 'px', // Using pixels for easier coordination with image dimensions initially
-        format: [600, 800], // Example: typical flyer aspect ratio, adjust as needed
+        unit: 'px', 
+        format: [600, 800], 
       });
 
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 30; // 30px margin
+      const margin = 30; 
+      let currentY = margin;
 
       // Add Image
       if (currentImage) {
         try {
-          // Attempt to get image dimensions (might not work for all data URIs directly without an Image object)
-          // For simplicity, let's assume the image is meant to be a background or prominent feature.
-          // We'll scale it to fit the width, and place it at the top.
           const img = new window.Image();
           img.src = currentImage;
-          await new Promise(resolve => img.onload = resolve);
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+          });
           
           const imgWidth = img.width;
           const imgHeight = img.height;
@@ -105,62 +106,67 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
 
           let pdfImgWidth = pageWidth - 2 * margin;
           let pdfImgHeight = pdfImgWidth / aspectRatio;
-
-          if (pdfImgHeight > pageHeight * 0.6) { // Limit image height to 60% of page
-            pdfImgHeight = pageHeight * 0.6;
+          
+          const maxImageHeight = pageHeight * 0.5; // Max 50% of page for image to leave space for text
+          if (pdfImgHeight > maxImageHeight) {
+            pdfImgHeight = maxImageHeight;
             pdfImgWidth = pdfImgHeight * aspectRatio;
           }
           
           const xPosImg = (pageWidth - pdfImgWidth) / 2;
-          doc.addImage(currentImage, 'PNG', xPosImg, margin, pdfImgWidth, pdfImgHeight);
+          doc.addImage(currentImage, 'PNG', xPosImg, currentY, pdfImgWidth, pdfImgHeight); // Use currentImage (which should be base64)
+          currentY += pdfImgHeight + 20; // Space after image
         } catch (e) {
             console.error("Error adding image to PDF: ", e);
-            toast({ title: "PDF Image Error", description: "Could not add image to PDF.", variant: "destructive"});
+            toast({ title: "PDF Image Error", description: "Could not add image to PDF. Proceeding with text only.", variant: "destructive"});
+            currentY += 20; // Add some space if image fails
         }
       } else {
-         // Placeholder for no image, e.g., a colored rectangle or just text shifted up
+         currentY += 20; // Space if no image
       }
 
-      let currentY = currentImage ? margin + (pageHeight * 0.6) + 20 : margin + 20; // Start Y position for text
-
       // Event Name
-      doc.setFontSize(30);
+      doc.setFontSize(28);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor('#667EEA'); // Primary color approximation
-      doc.text(eventDetails.name || "Event Name", pageWidth / 2, currentY, { align: 'center' });
-      currentY += 35;
+      doc.setTextColor(45, 55, 72); // Primary color (approximating --primary: 230 79% 66%;)
+      const eventNameLines = doc.splitTextToSize(eventDetails.name || "Event Name", pageWidth - 2 * margin);
+      doc.text(eventNameLines, pageWidth / 2, currentY, { align: 'center' });
+      currentY += (eventNameLines.length * 20) + 10; // Adjust based on lines
 
       // Tagline
       if (tagline) {
-        doc.setFontSize(18);
+        doc.setFontSize(16);
         doc.setFont('helvetica', 'italic');
-        doc.setTextColor('#9F7AEA'); // Accent color approximation
-        doc.text(tagline, pageWidth / 2, currentY, { align: 'center' });
-        currentY += 25;
+        doc.setTextColor(107, 33, 168); // Accent color (approximating --accent: 260 79% 70%;)
+        const taglineLines = doc.splitTextToSize(tagline, pageWidth - 2 * margin - 20);
+        doc.text(taglineLines, pageWidth / 2, currentY, { align: 'center' });
+        currentY += (taglineLines.length * 12) + 15;
       }
       
-      doc.setFontSize(12);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor('#0A0F1A'); // Foreground color approximation
+      doc.setTextColor(29, 37, 53); // Foreground color (approximating --foreground: 224 71.4% 4.1%;)
 
       // Date
       if (eventDetails.date) {
+        doc.setFontSize(12);
         doc.text(format(eventDetails.date, "EEEE, MMMM dd, yyyy 'at' h:mm a"), margin, currentY);
         currentY += 20;
       }
 
       // Location
       if (eventDetails.location) {
-        doc.text(eventDetails.location, margin, currentY, {maxWidth: pageWidth - 2*margin });
-        currentY += 20 + (eventDetails.location.length > 50 ? 10 : 0); // Add extra space for long locations
+        doc.setFontSize(12);
+        const locationLines = doc.splitTextToSize(eventDetails.location, pageWidth - 2 * margin);
+        doc.text(locationLines, margin, currentY);
+        currentY += (locationLines.length * 12) + 10;
       }
       
       // Description
       if (eventDetails.description) {
-        currentY += 10; // Little space before description
+        currentY += 5; 
         doc.setFontSize(10);
-        const splitDescription = doc.splitTextToSize(eventDetails.description, pageWidth - 2 * margin);
-        doc.text(splitDescription, margin, currentY);
+        const descriptionLines = doc.splitTextToSize(eventDetails.description, pageWidth - 2 * margin);
+        doc.text(descriptionLines, margin, currentY);
       }
 
       doc.save(`${safeEventName}.pdf`);
@@ -171,7 +177,7 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
       return;
     }
 
-    // Image download logic (PNG)
+    // Image download logic (PNG) - this branch will be less used now but kept for robustness
     if (!currentImage || imageSrc === PLACEHOLDER_IMAGE_URL) {
       toast({
         title: 'No Image to Download',
@@ -266,8 +272,8 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
           </Button>
           <div className="flex space-x-2">
             <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleDownload('png')}>PNG</Button>
-            <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleDownload('pdf')}>PDF</Button>
-            <Button variant="ghost" size="icon" title="Download Options" onClick={() => handleDownload('png')}>
+            {/* Removed PDF button, Download icon now handles PDF */}
+            <Button variant="ghost" size="icon" title="Download Flyer as PDF" onClick={() => handleDownload('pdf')}>
                 <Download className="h-5 w-5"/>
             </Button>
           </div>
@@ -276,3 +282,4 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
     </div>
   );
 }
+
