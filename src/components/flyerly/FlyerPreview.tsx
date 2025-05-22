@@ -11,6 +11,7 @@ import { Separator } from '../ui/separator';
 import { useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface FlyerPreviewProps {
   eventDetails: EventDetails;
@@ -109,8 +110,8 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
           
           // It's better to await image loading if it's not already loaded
           // but jsPDF addImage can often handle it. Let's wrap in a promise for safety.
-          await new Promise((resolve, reject) => {
-            img.onload = () => resolve(img);
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
             img.onerror = (err) => {
               console.error("Image failed to load for PDF:", err);
               reject(new Error("Image load failed for PDF"));
@@ -232,79 +233,97 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
 
 
   return (
-    <div className="space-y-6">
-      <Card className="shadow-xl w-full max-w-2xl mx-auto overflow-hidden">
-        <CardHeader className="bg-primary/10 p-4 sm:p-6">
-          <CardTitle className="text-3xl sm:text-4xl font-bold text-primary text-center break-words">
-            {eventDetails.name || "Event Name"}
-          </CardTitle>
-          {tagline && (
-            <CardDescription className="text-lg sm:text-xl text-accent text-center italic mt-1 break-words">
-              {tagline}
-            </CardDescription>
-          )}
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6 space-y-4">
-          <div className="aspect-[3/4] bg-muted rounded-md flex items-center justify-center overflow-hidden relative">
-            <Image 
-              src={imageSrc}
-              alt={imageAlt}
-              width={600}
-              height={800}
-              className="object-cover w-full h-full"
-              data-ai-hint={dataAiHintValue} // Use the dynamic hint
-              key={imageSrc} 
+    <TooltipProvider>
+      <div className="space-y-6">
+        <Card className="shadow-xl w-full max-w-2xl mx-auto overflow-hidden">
+          <CardHeader className="bg-primary/10 p-4 sm:p-6">
+            <CardTitle className="text-3xl sm:text-4xl font-bold text-primary text-center break-words">
+              {eventDetails.name || "Event Name"}
+            </CardTitle>
+            {tagline && (
+              <CardDescription className="text-lg sm:text-xl text-accent text-center italic mt-1 break-words">
+                {tagline}
+              </CardDescription>
+            )}
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 space-y-4">
+            <div className="aspect-[3/4] bg-muted rounded-md flex items-center justify-center overflow-hidden relative">
+              <Image 
+                src={imageSrc}
+                alt={imageAlt}
+                width={600}
+                height={800}
+                className="object-cover w-full h-full"
+                data-ai-hint={dataAiHintValue} // Use the dynamic hint
+                key={imageSrc} 
+              />
+              {!currentImage && ( 
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/20">
+                  <h2 className="text-white text-2xl font-bold text-center shadow-lg">{eventDetails.name || "Your Event Title"}</h2>
+                  <p className="text-white text-md text-center shadow-md">{tagline || "Catchy Tagline Here"}</p>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3 text-sm sm:text-base">
+              {eventDetails.date && (
+                <div className="flex items-center">
+                  <CalendarDays className="h-5 w-5 mr-3 text-primary" />
+                  <span>{format(eventDetails.date, "EEEE, MMMM dd, yyyy 'at' h:mm a")}</span>
+                </div>
+              )}
+              {eventDetails.location && (
+                <div className="flex items-center">
+                  <MapPin className="h-5 w-5 mr-3 text-primary" />
+                  <span className="break-words">{eventDetails.location}</span>
+                </div>
+              )}
+              {eventDetails.description && (
+                <div className="pt-2">
+                  <h4 className="font-semibold mb-1 text-primary">About the Event:</h4>
+                  <p className="text-muted-foreground break-words whitespace-pre-line">{eventDetails.description}</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col sm:flex-row justify-between items-center p-4 sm:p-6 bg-secondary/30 gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              className="hidden"
             />
-            {!currentImage && ( 
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/20">
-                <h2 className="text-white text-2xl font-bold text-center shadow-lg">{eventDetails.name || "Your Event Title"}</h2>
-                <p className="text-white text-md text-center shadow-md">{tagline || "Catchy Tagline Here"}</p>
-              </div>
-            )}
-          </div>
-
-          <Separator />
-
-          <div className="space-y-3 text-sm sm:text-base">
-            {eventDetails.date && (
-              <div className="flex items-center">
-                <CalendarDays className="h-5 w-5 mr-3 text-primary" />
-                <span>{format(eventDetails.date, "EEEE, MMMM dd, yyyy 'at' h:mm a")}</span>
-              </div>
-            )}
-            {eventDetails.location && (
-              <div className="flex items-center">
-                <MapPin className="h-5 w-5 mr-3 text-primary" />
-                <span className="break-words">{eventDetails.location}</span>
-              </div>
-            )}
-            {eventDetails.description && (
-              <div className="pt-2">
-                <h4 className="font-semibold mb-1 text-primary">About the Event:</h4>
-                <p className="text-muted-foreground break-words whitespace-pre-line">{eventDetails.description}</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row justify-between items-center p-4 sm:p-6 bg-secondary/30 gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept="image/*"
-            className="hidden"
-          />
-          <Button variant="outline" className="w-full sm:w-auto" onClick={handleUploadButtonClick}>
-            <Upload className="mr-2 h-4 w-4" /> Upload Image/Logo
-          </Button>
-          <div className="flex space-x-2">
-            <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleDownload('png')}>PNG</Button>
-            <Button variant="ghost" size="icon" title="Download Flyer as PDF" onClick={() => handleDownload('pdf')}>
-                <Download className="h-5 w-5"/>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={handleUploadButtonClick}>
+              <Upload className="mr-2 h-4 w-4" /> Upload Image/Logo
             </Button>
-          </div>
-        </CardFooter>
-      </Card>
-    </div>
+            <div className="flex space-x-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleDownload('png')}>PNG</Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Download as PNG</p>
+                </TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => handleDownload('pdf')}>
+                      <Download className="h-5 w-5"/>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Download Flyer as PDF</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </CardFooter>
+        </Card>
+      </div>
+    </TooltipProvider>
   );
 }
+
