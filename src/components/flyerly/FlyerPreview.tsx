@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { format } from 'date-fns';
-import { CalendarDays, MapPin, Upload, Download, Palette, ImagePlus } from 'lucide-react';
+import { CalendarDays, MapPin, Upload, Download } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -62,7 +62,7 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
     }
   };
 
-  const handleDownload = async (formatType: 'png' | 'jpeg' | 'pdf') => {
+  const handleDownload = async (formatType: 'png' | 'pdf') => {
     const safeEventName = eventDetails.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'flyer';
 
     if (formatType === 'pdf') {
@@ -171,7 +171,7 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
       return;
     }
 
-    // Image download logic (PNG/JPEG)
+    // Image download logic (PNG)
     if (!currentImage || imageSrc === PLACEHOLDER_IMAGE_URL) {
       toast({
         title: 'No Image to Download',
@@ -184,19 +184,8 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
     const link = document.createElement('a');
     link.href = imageSrc;
     
-    let filename = `${safeEventName}.${formatType === 'jpeg' ? 'jpg' : 'png'}`;
+    const filename = `${safeEventName}.png`;
     
-    if (formatType === 'jpeg' && imageSrc.startsWith('data:image/png')) {
-        toast({
-            title: 'Downloading as PNG',
-            description: 'The current image is PNG. For true JPG conversion, advanced processing is needed. Downloading as PNG.',
-            duration: 6000,
-        });
-         filename = `${safeEventName}.png`;
-    } else if (formatType === 'jpeg') {
-         filename = `${safeEventName}.jpg`;
-    }
-
     link.download = filename;
     document.body.appendChild(link);
     link.click();
@@ -277,7 +266,6 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
           </Button>
           <div className="flex space-x-2">
             <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleDownload('png')}>PNG</Button>
-            <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleDownload('jpeg')}>JPG</Button>
             <Button variant="default" size="sm" className="bg-primary hover:bg-primary/90" onClick={() => handleDownload('pdf')}>PDF</Button>
             <Button variant="ghost" size="icon" title="Download Options" onClick={() => handleDownload('png')}>
                 <Download className="h-5 w-5"/>
@@ -285,27 +273,6 @@ export default function FlyerPreview({ eventDetails, tagline, currentImage, onIm
           </div>
         </CardFooter>
       </Card>
-      
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-xl flex items-center">
-            <Palette className="mr-2 h-5 w-5 text-primary"/> Flyer Editor Tools
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            Drag-and-drop interface for flyer customization, image upload, and text editing will be available here.
-            This feature is currently under development.
-          </p>
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <Button variant="outline" disabled><ImagePlus className="mr-2 h-4 w-4"/> Add Image</Button>
-            <Button variant="outline" disabled>Add Text</Button>
-            <Button variant="outline" disabled>Add Shape</Button>
-            <Button variant="outline" disabled>Change Colors</Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
-
