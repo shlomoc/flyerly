@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { EventDetails } from '@/types/flyer';
 import AiTaglineGenerator from '@/components/flyerly/AiTaglineGenerator';
 import AiImageGenerator from '@/components/flyerly/AiImageGenerator';
@@ -15,13 +15,21 @@ export default function HomePage() {
   const [eventDetails, setEventDetails] = useState<EventDetails>({
     name: 'My Awesome Event',
     description: 'Join us for an unforgettable experience filled with fun, music, and networking opportunities. This event is perfect for professionals and enthusiasts alike. We will have guest speakers, workshops, and a grand finale party!',
-    date: new Date(),
+    date: undefined, // Initialize date as undefined
     location: '123 Main Street, Anytown, USA',
   });
   const [tagline, setTagline] = useState<string>('Your Amazing Tagline Goes Here!');
   const [activeFlyerImage, setActiveFlyerImage] = useState<string | null>(null);
   const [currentImageHint, setCurrentImageHint] = useState<string>('event poster'); // For placeholder image hint
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Set the date on the client side after hydration
+    setEventDetails(prevDetails => ({
+      ...prevDetails,
+      date: new Date(),
+    }));
+  }, []); // Empty dependency array ensures this runs once on mount
 
   const handleDetailsChange = useCallback((fieldName: keyof EventDetails, value: any) => {
     setEventDetails(prevDetails => ({
@@ -56,14 +64,14 @@ export default function HomePage() {
     const selectedTemplate = exampleTemplates.find(t => t.id === templateId);
     if (selectedTemplate) {
       setEventDetails(prevDetails => ({
-        ...prevDetails, // Keep existing date and location unless specified by template
+        ...prevDetails, 
         name: selectedTemplate.defaultEventName || prevDetails.name,
         description: selectedTemplate.defaultEventDescription || prevDetails.description,
-        // date: selectedTemplate.defaultDate || prevDetails.date, // Example if templates could set dates
-        // location: selectedTemplate.defaultLocation || prevDetails.location, // Example for location
+        date: prevDetails.date, // Keep existing date or set to template default if needed
+        location: prevDetails.location, // Keep existing location or set to template default
       }));
       setTagline(selectedTemplate.defaultTagline || 'Your Amazing Tagline Goes Here!');
-      setActiveFlyerImage(null); // Reset to placeholder
+      setActiveFlyerImage(null); 
       setCurrentImageHint(selectedTemplate.defaultImageHint || 'event poster');
       toast({
         title: "Template Selected!",
